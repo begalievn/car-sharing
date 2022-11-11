@@ -1,20 +1,16 @@
 import { HttpException, Injectable, HttpStatus } from "@nestjs/common";
-import { InjectRepository } from '@nestjs/typeorm';
-import { Customer } from './customers.entity';
-import { Repository } from 'typeorm';
 import { AddCustomerDto } from "./dto/add-customer.dto";
-import { InjectDataSource } from '@nestjs/typeorm';
-import { DataSource } from 'typeorm';
-import { pool } from '../database/db';
+import { CustomersRepository } from "./customers.repository";
 
 @Injectable()
 export class CustomersService {
 
-  constructor() {}
+  constructor(
+    private customersRepository: CustomersRepository
+  ) {}
 
   async getAllCustomers() {
-    const res = await pool.query(`SELECT * FROM customer`);
-    return res?.rows;
+    return await this.customersRepository.getAllCustomers();
   }
 
   async addNewCustomer(addCustomerDto: AddCustomerDto) {
@@ -27,10 +23,7 @@ export class CustomersService {
         age
       } = addCustomerDto;
 
-      await pool.query(`
-        INSERT 
-        INTO customer (passport_number, username, name, surname, age) 
-        VALUES (${passport_number}, '${username}', '${name}', '${surname}', ${age});`);
+      return await this.customersRepository.insertNewCustomer(passport_number, username, name, surname, age)
     } catch(e) {
       throw new HttpException('Не верно заполнены поля', HttpStatus.BAD_REQUEST);
     }

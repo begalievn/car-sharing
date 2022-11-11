@@ -5,11 +5,11 @@ import { CustomersModule } from './customers/customers.module';
 import { RentsModule } from "./rents/rents.module";
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Car } from './cars/cars.entity';
+import { Car } from './cars/schemas/cars.entity';
 import { CarsModule } from './cars/cars.module';
-import { Customer } from './customers/customers.entity';
-import { Rent } from './rents/rents.entity';
-import { Statistic } from './statistics/statistics.entity';
+import { Customer } from './customers/shemas/customers.entity';
+import { Rent } from './rents/schemas/rents.entity';
+import { Statistic } from './statistics/schemas/statistics.entity';
 import { StatisticsModule } from './statistics/statistics.module';
 
 @Module({

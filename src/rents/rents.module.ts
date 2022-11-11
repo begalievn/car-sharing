@@ -2,8 +2,9 @@ import { Module } from '@nestjs/common';
 import { RentsController } from "./rents.controller";
 import { RentsService } from "./rents.service";
 import { TypeOrmModule } from '@nestjs/typeorm';
-import { Rent } from './rents.entity';
+import { Rent } from './schemas/rents.entity';
 import { StatisticsModule } from '../statistics/statistics.module';
+import { RentsRepository } from "./rents.repository";
 
 @Module({
   imports: [
@@ -11,6 +12,6 @@ import { StatisticsModule } from '../statistics/statistics.module';
     StatisticsModule
   ],
   controllers: [RentsController],
-  providers: [RentsService]
+  providers: [RentsService, RentsRepository]
 })
 export class RentsModule {}

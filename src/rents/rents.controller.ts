@@ -11,11 +11,6 @@ export class RentsController {
     return this.rentsService.getAll();
   }
 
-  @Get(':id')
-  getRentByCarId(@Param('id') id: string) {
-    return this.rentsService.getRentByCarId(Number(id));
-  }
-
   @Get('all/:id')
   getAllRentsByCarId(@Param('id') id: string) {
     return this.rentsService.getAllRentsByCarId(Number(id));

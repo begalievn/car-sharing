@@ -1,64 +1,126 @@
 import { Injectable } from "@nestjs/common";
-import { InjectRepository, InjectConnection, InjectDataSource } from "@nestjs/typeorm";
-import { Repository, Connection, DataSource } from "typeorm";
-import { Statistic } from "./statistics.entity";
-import { pool } from "../database/db";
+import { daysInMonth } from "../utils/statistics.helpers";
+import { StatisticsRepository } from "./statistics.repository";
+import { calculatePrice } from "../utils/rents.helper";
 
 
 @Injectable()
 export class StatisticsService {
   constructor(
-    @InjectRepository(Statistic) private statisticsRepository: Repository<Statistic>,
-    @InjectConnection() private readonly connection: Connection,
-    @InjectDataSource() private dataSource: DataSource
+    private statisticsRepository: StatisticsRepository,
   ) {
   }
 
-  async getAllStatistics() {
-    const result = await pool.query(`SELECT *
-                                     FROM statistic`);
-    return result?.rows;
+  async getAllStatistics(query) {
+    const result = await this.statisticsRepository.getAllStatistics(query);
+    return result;
   }
 
-  async addRentToStatistics(rent) {
-    const result = await pool.query(`SELECT *
-                                     FROM statistic
-                                     WHERE car_id = ${rent.car_id};`);
-    const car = result?.rows;
-    if (!car[0]) {
-      const newCar = {
+  async addToStatisticsByMonth(rent) {
+
+    if (rent.from_date.getMonth() !== rent.till_date.getMonth()) {
+      const carInfoByFirstMonth = await this.statisticsRepository.getCarInfoFromMonthStatistics((rent.car_id), rent.from_date.getMonth() + 1, rent.from_date.getFullYear());
+      const rented_days_1 = (carInfoByFirstMonth?.rented_days || 0) + (daysInMonth((rent.from_date.getMonth() + 1), rent.from_date.getFullYear()) - rent.from_date.getDate());
+      const firstMonthStatistics = {
+        year: rent.from_date.getFullYear(),
+        month: rent.from_date.getMonth() + 1,
         car_id: rent.car_id,
-        sessions: 1,
-        rented_days: rent.rented_days,
-        total_income: rent.price,
-        average_income: rent.price
+        rented_days: Math.abs(rented_days_1),
+        total_income: (carInfoByFirstMonth?.total_income || 0) + calculatePrice(rented_days_1),
+        average_income: ((carInfoByFirstMonth?.total_income || 0) + rent.price) / Math.abs(rented_days_1),
+        sessions: (carInfoByFirstMonth?.sessions || 0) + 1,
+        percent_days: Math.floor(rented_days_1 * 100 / daysInMonth(rent.from_date.getMonth() + 1, rent.from_date.getFullYear()))
       };
 
-      await pool.query(`
-          INSERT
-          INTO statistic (car_id, sessions, rented_days, total_income, average_income)
-          VAlUES (${newCar.car_id}, ${newCar.sessions}, ${newCar.rented_days}, ${newCar.total_income},
-                  ${newCar.average_income});`);
+      if (carInfoByFirstMonth) {
+        await this.statisticsRepository.updateMonthStatistic(
+          firstMonthStatistics.rented_days,
+          firstMonthStatistics.total_income,
+          firstMonthStatistics.average_income,
+          firstMonthStatistics.sessions,
+          firstMonthStatistics.percent_days,
+          firstMonthStatistics.car_id,
+          firstMonthStatistics.month,
+          firstMonthStatistics.year
+        )
 
-      return newCar;
+      } else {
+        await this.statisticsRepository.insertIntoMonthStatistic(
+          firstMonthStatistics.year, firstMonthStatistics.month,
+          firstMonthStatistics.car_id, firstMonthStatistics.rented_days,
+          firstMonthStatistics.total_income, firstMonthStatistics.average_income,
+          firstMonthStatistics.sessions, firstMonthStatistics.percent_days
+        )
+      }
+
+      let carInfoBySecondMonth = await this.statisticsRepository.getCarInfoFromMonthStatistics(rent.car_id, rent.till_date.getMonth() + 1, rent.till_date.getFullYear());
+      const rented_days_2 = (carInfoBySecondMonth?.rented_days || 0) + rent.till_date.getDate();
+      const secondMonthStatistics = {
+        year: rent.till_date.getFullYear(),
+        month: rent.till_date.getMonth() + 1,
+        car_id: rent.car_id,
+        rented_days: rented_days_2,
+        total_income: (carInfoBySecondMonth?.total_income || 0) + calculatePrice(rented_days_2),
+        average_income: ((carInfoBySecondMonth?.total_income || 0) + rent.price) / rented_days_2,
+        sessions: (carInfoBySecondMonth?.sessions || 0) + 1,
+        percent_days: Math.floor(rented_days_2 * 100 / daysInMonth(rent.till_date.getMonth() + 1, rent.till_date.getFullYear()))
+      };
+
+      if (carInfoBySecondMonth) {
+        await this.statisticsRepository.updateMonthStatistic(
+          secondMonthStatistics.rented_days,
+          secondMonthStatistics.total_income,
+          secondMonthStatistics.average_income,
+          secondMonthStatistics.sessions,
+          secondMonthStatistics.percent_days,
+          secondMonthStatistics.car_id,
+          secondMonthStatistics.month,
+          secondMonthStatistics.year
+        )
+      } else {
+        await this.statisticsRepository.insertIntoMonthStatistic(
+          secondMonthStatistics.year, secondMonthStatistics.month,
+          secondMonthStatistics.car_id, secondMonthStatistics.rented_days,
+          secondMonthStatistics.total_income, secondMonthStatistics.average_income,
+          secondMonthStatistics.sessions, secondMonthStatistics.percent_days
+        )
+      }
     } else {
-      const updateCar = car[0];
-      updateCar.sessions += 1;
-      updateCar.rented_days += rent.rented_days;
-      updateCar.average_income = Math.floor((updateCar.total_income + rent.price) / updateCar.sessions);
-      updateCar.total_income += rent.price;
-      console.log("Updated Car", updateCar);
 
-      await pool.query(`
-          UPDATE statistic
-          SET sessions       = ${updateCar.sessions},
-              rented_days    = ${updateCar.rented_days},
-              average_income = ${updateCar.average_income},
-              total_income   = ${updateCar.total_income}
-          WHERE car_id = ${updateCar.car_id};
-      `);
+      const carInfoByMonth = await this.statisticsRepository.getCarInfoFromMonthStatistics(rent.car_id, rent.from_date.getMonth() + 1, rent.from_date.getFullYear());
+      const rented_days_c = (carInfoByMonth?.rented_days || 0) + rent.till_date.getDate() - rent.from_date.getDate();
+      const newStat = {
+        year: rent.from_date.getFullYear(),
+        month: rent.from_date.getMonth() + 1,
+        car_id: rent.car_id,
+        rented_days: rented_days_c,
+        total_income: (carInfoByMonth?.total_income || 0) + rent.price,
+        average_income: ((carInfoByMonth?.total_income || 0) + rent.price) / ((carInfoByMonth?.rented_days || 0) + rent.till_date.getDate() - rent.from_date.getDate()),
+        sessions: (carInfoByMonth?.sessions || 0) + 1,
+        percent_days: Math.floor(rented_days_c * 100 /  daysInMonth(rent.from_date.getMonth() + 1, rent.from_date.getFullYear()))
+      };
 
-      return updateCar;
+      if (carInfoByMonth) {
+        await this.statisticsRepository.updateMonthStatistic(
+          newStat.rented_days,
+          newStat.total_income,
+          newStat.average_income,
+          newStat.sessions,
+          newStat.percent_days,
+          newStat.car_id,
+          newStat.month,
+          newStat.year
+        );
+
+      } else {
+        await this.statisticsRepository.insertIntoMonthStatistic(
+          newStat.year, newStat.month,
+          newStat.car_id, newStat.rented_days,
+          newStat.total_income, newStat.average_income,
+          newStat.sessions, newStat.percent_days
+        )
+      }
     }
   }
+
 }

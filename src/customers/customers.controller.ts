@@ -15,6 +15,5 @@ export class CustomersController {
   @Post()
   addNewCustomer(@Body() addCustomerDto: AddCustomerDto) {
     return this.customersService.addNewCustomer(addCustomerDto);
-    const temp=new Date('2015-02-31')
   }
 }

@@ -1,5 +1,6 @@
-import { Controller, Get } from '@nestjs/common';
+import { Controller, Get, Param, Query } from '@nestjs/common';
 import { StatisticsService } from './statistics.service';
+
 
 @Controller('statistics')
 export class StatisticsController {
@@ -7,7 +8,7 @@ export class StatisticsController {
   constructor(private statisticsService: StatisticsService) {}
 
   @Get()
-  getAllStatistics() {
-    return this.statisticsService.getAllStatistics();
+  getAllStatistics(@Query() query) {
+    return this.statisticsService.getAllStatistics(query);
   }
 }
